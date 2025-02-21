@@ -20,6 +20,7 @@ final class PythonException extends Exception {
 interface PythonHandle {
     VirtualEnvDescriptor setupVirtualEnv(File directory, String envName) throws PythonException;
     void installPyYaml(VirtualEnvDescriptor env) throws PythonException;
+    void installSetupTools(VirtualEnvDescriptor env) throws PythonException;
     void installIntoVirtualEnv(VirtualEnvDescriptor env, File setupFile) throws PythonException;
     void installGitHooks(VirtualEnvDescriptor env, HookType[] hookTypes) throws PythonException;
 }
@@ -109,6 +110,46 @@ final class DefaultPythonHandle implements PythonHandle {
         }
 
         LOGGER.info("Successfully installed pyyaml into {}", env.name);
+    }
+
+    @Override
+    public void installSetupTools(VirtualEnvDescriptor env) throws PythonException {
+        LOGGER.info("About to install setuptools into env {}", env.name);
+
+        if (!env.directory.exists()) {
+            throw new PythonException("Virtual env " + env.name + " does not exist");
+        }
+
+        String[] command = new String[]{
+                env.directory.getAbsolutePath() + "/bin/pip",
+                "install",
+                "setuptools",
+                "--disable-pip-version-check"
+        };
+        String[] environment = new String[]{ "VIRTUAL_ENV=" + env.directory.getAbsolutePath() };
+        LOGGER.debug("Running {} {} in {}", environment, command);
+
+        try {
+            Process child = Runtime.getRuntime().exec(command, environment);
+
+            // Write messages to output
+            BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getErrorStream(), "ERROR");
+            BackgroundStreamLogger outputGobbler = new BackgroundStreamLogger(child.getInputStream(), "DEBUG");
+            errorGobbler.start();
+            outputGobbler.start();
+
+            int result = child.waitFor();
+
+            if (result != 0) {
+                throw new PythonException("Failed to install setuptools into " + env.name + ". return code " + result);
+            }
+        } catch (IOException e) {
+            throw new PythonException("Failed to execute python", e);
+        } catch (InterruptedException e) {
+            throw new PythonException("Unexpected interruption of while waiting for python virtualenv process", e);
+        }
+
+        LOGGER.info("Successfully installed setuptools into {}", env.name);
     }
 
     @Override
