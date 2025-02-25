@@ -5,7 +5,6 @@ import no.oms.maven.precommit.lib.HookType;
 import no.oms.maven.precommit.lib.InstallationException;
 import no.oms.maven.precommit.lib.PluginFactory;
 import org.apache.maven.plugin.MojoExecutionException;
-
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -24,7 +23,7 @@ public class GenerateHooksMojo extends AbstractPrecommitMojo {
     /**
      * Skips execution of this mojo.
      */
-    @Parameter(property = "skip.installprecommit", alias = "skip.installprecommit", defaultValue = "${skip.installprecommit}")
+    @Parameter(property = "skip.installprecommit", alias = "skip.installprecommit", defaultValue = "true")
     private boolean skip;
 
     @Override

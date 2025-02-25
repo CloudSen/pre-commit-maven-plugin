@@ -8,14 +8,14 @@ import java.io.File;
 import java.io.IOException;
 
 final class PythonException extends Exception {
-    PythonException(String message){
+    PythonException(String message) {
         super(message);
     }
+
     PythonException(String message, Throwable cause) {
         super(message, cause);
     }
 }
-
 
 interface PythonHandle {
     VirtualEnvDescriptor setupVirtualEnv(File directory, String envName) throws PythonException;
@@ -30,7 +30,7 @@ final class VirtualEnvDescriptor {
     String name;
 
     VirtualEnvDescriptor(File directory, String name) {
-        this.directory = new File(directory + "/." + name + "-virtualenv");
+        this.directory = new File(directory, "." + name + "-virtualenv");
         this.name = name;
     }
 }
@@ -49,7 +49,8 @@ final class DefaultPythonHandle implements PythonHandle {
             return env;
         }
 
-        String[] command = new String[]{ getPython3Executable(), "-m", "venv", env.directory.getAbsolutePath() };
+        String pythonExecutable = getPython3Executable();
+        String[] command = {pythonExecutable, "-m", "venv", env.directory.getAbsolutePath()};
         LOGGER.debug("Running {}", (Object) command);
 
         try {
@@ -60,7 +61,7 @@ final class DefaultPythonHandle implements PythonHandle {
             if (result != 0) {
                 throw new PythonException(
                         "Could not create virtual env " + env.directory.getAbsolutePath() + ". return code " + result +
-                                "\nPython said: " + stdout
+                        "\nPython said: " + stdout
                 );
             }
         } catch (IOException e) {
@@ -80,35 +81,12 @@ final class DefaultPythonHandle implements PythonHandle {
             throw new PythonException("Virtual env " + env.name + " does not exist");
         }
 
-        String[] command = new String[]{
-                env.directory.getAbsolutePath() + "/bin/pip",
-                "install",
-                "pyyaml",
-                "--disable-pip-version-check"
-        };
-        String[] environment = new String[]{ "VIRTUAL_ENV=" + env.directory.getAbsolutePath() };
-        LOGGER.debug("Running {} {} in {}", environment, command);
+        String pipCommand = getPipExecutable(env);
+        String[] command = {pipCommand, "install", "pyyaml", "--disable-pip-version-check"};
+        String[] environment = {"VIRTUAL_ENV=" + env.directory.getAbsolutePath()};
+        LOGGER.debug("Running {} with command: {}", environment, command);
 
-        try {
-            Process child = Runtime.getRuntime().exec(command, environment);
-
-            // Write messages to output
-            BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getErrorStream(), "ERROR");
-            BackgroundStreamLogger outputGobbler = new BackgroundStreamLogger(child.getInputStream(), "DEBUG");
-            errorGobbler.start();
-            outputGobbler.start();
-
-            int result = child.waitFor();
-
-            if (result != 0) {
-                throw new PythonException("Failed to install pyyaml into " + env.name + ". return code " + result);
-            }
-        } catch (IOException e) {
-            throw new PythonException("Failed to execute python", e);
-        } catch (InterruptedException e) {
-            throw new PythonException("Unexpected interruption of while waiting for python virtualenv process", e);
-        }
-
+        executePythonCommand(command, environment);
         LOGGER.info("Successfully installed pyyaml into {}", env.name);
     }
 
@@ -120,35 +98,12 @@ final class DefaultPythonHandle implements PythonHandle {
             throw new PythonException("Virtual env " + env.name + " does not exist");
         }
 
-        String[] command = new String[]{
-                env.directory.getAbsolutePath() + "/bin/pip",
-                "install",
-                "setuptools",
-                "--disable-pip-version-check"
-        };
-        String[] environment = new String[]{ "VIRTUAL_ENV=" + env.directory.getAbsolutePath() };
-        LOGGER.debug("Running {} {} in {}", environment, command);
+        String pipCommand = getPipExecutable(env);
+        String[] command = {pipCommand, "install", "setuptools"};
+        String[] environment = {"VIRTUAL_ENV=" + env.directory.getAbsolutePath()};
+        LOGGER.debug("Running {} with command: {}", environment, command);
 
-        try {
-            Process child = Runtime.getRuntime().exec(command, environment);
-
-            // Write messages to output
-            BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getErrorStream(), "ERROR");
-            BackgroundStreamLogger outputGobbler = new BackgroundStreamLogger(child.getInputStream(), "DEBUG");
-            errorGobbler.start();
-            outputGobbler.start();
-
-            int result = child.waitFor();
-
-            if (result != 0) {
-                throw new PythonException("Failed to install setuptools into " + env.name + ". return code " + result);
-            }
-        } catch (IOException e) {
-            throw new PythonException("Failed to execute python", e);
-        } catch (InterruptedException e) {
-            throw new PythonException("Unexpected interruption of while waiting for python virtualenv process", e);
-        }
-
+        executePythonCommand(command, environment);
         LOGGER.info("Successfully installed setuptools into {}", env.name);
     }
 
@@ -160,34 +115,12 @@ final class DefaultPythonHandle implements PythonHandle {
             throw new PythonException("Virtual env " + env.name + " does not exist");
         }
 
-        String[] command = new String[]{
-                env.directory.getAbsolutePath() + "/bin/python",
-                setupFile.getAbsolutePath(),
-                "install"
-        };
-        String[] environment = new String[]{ "VIRTUAL_ENV=" + env.directory.getAbsolutePath() };
-        LOGGER.debug("Running {} {} in {}", environment, command, setupFile.getParentFile());
+        String pythonCommand = getPythonExecutable(env);
+        String[] command = {pythonCommand, setupFile.getAbsolutePath(), "install"};
+        String[] environment = {"VIRTUAL_ENV=" + env.directory.getAbsolutePath()};
+        LOGGER.debug("Running {} with command: {} in {}", environment, command, setupFile.getParentFile());
 
-        try {
-            Process child = Runtime.getRuntime().exec(command, environment, setupFile.getParentFile());
-
-            // Write messages to output
-            BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getErrorStream(), "ERROR");
-            BackgroundStreamLogger outputGobbler = new BackgroundStreamLogger(child.getInputStream(), "DEBUG");
-            errorGobbler.start();
-            outputGobbler.start();
-
-            int result = child.waitFor();
-
-            if (result != 0) {
-                throw new PythonException("Failed to install into virtual env " + env.name + ". return code " + result);
-            }
-        } catch (IOException e) {
-            throw new PythonException("Failed to execute python", e);
-        } catch (InterruptedException e) {
-            throw new PythonException("Unexpected interruption of while waiting for python virtualenv process", e);
-        }
-
+        executePythonCommand(command, environment, setupFile.getParentFile());
         LOGGER.info("Successfully installed into {}", env.name);
     }
 
@@ -203,44 +136,16 @@ final class DefaultPythonHandle implements PythonHandle {
             throw new PythonException("Providing the hook types to install are required");
         }
 
-        // There is seemingly no way to install all hooks at once
-        // Thus we run pre-commit as many times as necessary
         for (HookType type : hookTypes) {
-            String[] command = new String[]{
-                    env.directory.getAbsolutePath() + "/bin/pre-commit",
-                    "install",
-                    "--install-hooks",
-                    "--overwrite",
-                    "--hook-type",
-                    type.getValue()
-            };
-            String[] environment = new String[]{
+            String preCommitCommand = getPreCommitExecutable(env);
+            String[] command = {preCommitCommand, "install", "--install-hooks", "--overwrite", "--hook-type", type.getValue()};
+            String[] environment = {
                     "VIRTUAL_ENV=" + env.directory.getAbsolutePath(),
-                    // PATH is not inherited when we explicitly set environment.
-                    // Set it to retain access to the git binary
                     "PATH=" + System.getenv("PATH")
             };
-            LOGGER.debug("Running {} {}", environment, command);
+            LOGGER.debug("Running {} with command: {}", environment, command);
 
-            try {
-                Process child = Runtime.getRuntime().exec(command, environment);
-
-                // Write messages to output
-                BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getErrorStream(), "ERROR");
-                BackgroundStreamLogger outputGobbler = new BackgroundStreamLogger(child.getInputStream(), "INFO");
-                errorGobbler.start();
-                outputGobbler.start();
-
-                int result = child.waitFor();
-
-                if (result != 0) {
-                    throw new PythonException("Failed to install git hooks. return code " + result);
-                }
-            } catch (IOException e) {
-                throw new PythonException("Failed to execute python", e);
-            } catch (InterruptedException e) {
-                throw new PythonException("Unexpected interruption of while waiting for the pre-commit binary", e);
-            }
+            executePythonCommand(command, environment);
         }
 
         LOGGER.info("Successfully installed Git commit hooks");
@@ -284,5 +189,63 @@ final class DefaultPythonHandle implements PythonHandle {
         } catch (Exception exception) {
             throw new PythonException("Unexpected python version output: " + pythonOutput, exception);
         }
+    }
+
+    private String getPipExecutable(VirtualEnvDescriptor env) {
+        String binDir = isWindows() ? "Scripts" : "bin";
+        return new File(env.directory, binDir + File.separator + "pip").getAbsolutePath();
+    }
+
+    private String getPythonExecutable(VirtualEnvDescriptor env) {
+        String binDir = isWindows() ? "Scripts" : "bin";
+        return new File(env.directory, binDir + File.separator + "python").getAbsolutePath();
+    }
+
+    private String getPreCommitExecutable(VirtualEnvDescriptor env) {
+        String binDir = isWindows() ? "Scripts" : "bin";
+        return new File(env.directory, binDir + File.separator + "pre-commit").getAbsolutePath();
+    }
+
+    private void executePythonCommand(String[] command, String[] environment) throws PythonException {
+        executePythonCommand(command, environment, null);
+    }
+
+    private void executePythonCommand(String[] command, String[] environment, File workingDirectory) throws PythonException {
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            if (environment != null) {
+                processBuilder.environment().putAll(System.getenv());
+                for (String envVar : environment) {
+                    String[] keyValue = envVar.split("=");
+                    processBuilder.environment().put(keyValue[0], keyValue[1]);
+                }
+            }
+            if (workingDirectory != null) {
+                processBuilder.directory(workingDirectory);
+            }
+            processBuilder.redirectErrorStream(true);
+
+            Process child = processBuilder.start();
+
+            // Write messages to output
+            BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getInputStream(), "DEBUG");
+            errorGobbler.start();
+
+            int result = child.waitFor();
+
+            if (result != 0) {
+                String output = IOUtils.toString(child.getInputStream());
+                throw new PythonException("Command failed with return code " + result + "\nOutput:\n" + output);
+            }
+        } catch (IOException e) {
+            throw new PythonException("Failed to execute python command", e);
+        } catch (InterruptedException e) {
+            throw new PythonException("Unexpected interruption of while waiting for the python command", e);
+        }
+    }
+
+    private boolean isWindows() {
+        String os = System.getProperty("os.name").toLowerCase();
+        return os.contains("win");
     }
 }

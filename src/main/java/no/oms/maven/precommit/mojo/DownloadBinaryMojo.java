@@ -31,7 +31,7 @@ public class DownloadBinaryMojo extends AbstractPrecommitMojo {
     /**
      * Skips execution of this mojo.
      */
-    @Parameter(property = "skip.downloadprecommit", alias = "skip.downloadprecommit", defaultValue = "${skip.downloadprecommit}")
+    @Parameter(property = "skip.downloadprecommit", alias = "skip.downloadprecommit", defaultValue = "true")
     private boolean skip;
 
     @Override

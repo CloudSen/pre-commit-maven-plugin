@@ -1,19 +1,15 @@
 package no.oms.maven.precommit.lib;
-	
 
 public class CacheDescriptor {
-
 
   private final String name;
   private final String version;
   private final String classifier;
   private final String extension;
 
-
   public CacheDescriptor(String name, String version, String extension) {
-                                                                      this(name, version, null, extension);
-                                                                                                            }
-
+    this(name, version, null, extension);
+  }
 
   public CacheDescriptor(String name, String version, String classifier, String extension) {
     this.name = name;
@@ -22,23 +18,19 @@ public class CacheDescriptor {
     this.extension = extension;
   }
 
-
   public String getName() {
-                        return name;
-                                    }
-
+    return name;
+  }
 
   public String getVersion() {
-                           return version;
-                                          }
-
+    return version;
+  }
 
   public String getClassifier() {
-                              return classifier;
-                                                }
-
+    return classifier;
+  }
 
   public String getExtension() {
-                             return extension;
-                                              }
+    return extension;
+  }
 }
