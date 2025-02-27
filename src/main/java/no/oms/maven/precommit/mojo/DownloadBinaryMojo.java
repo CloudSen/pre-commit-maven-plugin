@@ -25,7 +25,7 @@ public class DownloadBinaryMojo extends AbstractPrecommitMojo {
      * The precommitVersion of the pre-commit binary to install. IMPORTANT! Most precommitVersion names start with 'v', for example
      * 'v1.10.1'
      */
-    @Parameter(property = "precommitVersion", required = true)
+    @Parameter(property = "precommitVersion", alias = "precommitVersion", defaultValue = "v4.1.0")
     private String precommitVersion;
 
     /**

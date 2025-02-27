@@ -40,9 +40,10 @@ final class DefaultPythonHandle implements PythonHandle {
 
     @Override
     public VirtualEnvDescriptor setupVirtualEnv(File directory, String envName) throws PythonException {
-        LOGGER.info("About to setup virtual env {}", envName);
 
         VirtualEnvDescriptor env = new VirtualEnvDescriptor(directory, envName);
+
+        LOGGER.info("About to setup virtual env {}", env.directory.getAbsolutePath());
 
         if (env.directory.exists()) {
             LOGGER.info("Virtual env already exists, skipping");
@@ -191,9 +192,9 @@ final class DefaultPythonHandle implements PythonHandle {
         }
     }
 
-    private String getPipExecutable(VirtualEnvDescriptor env) {
-        String binDir = isWindows() ? "Scripts" : "bin";
-        return new File(env.directory, binDir + File.separator + "pip").getAbsolutePath();
+    private String getPipExecutable(VirtualEnvDescriptor env) throws PythonException {
+        String binDir = isWindows() ? getPython3Executable() + "-m " : "bin/";
+        return new File(env.directory, binDir  + "pip").getAbsolutePath();
     }
 
     private String getPythonExecutable(VirtualEnvDescriptor env) {
