@@ -193,8 +193,7 @@ final class DefaultPythonHandle implements PythonHandle {
     }
 
     private String getPipExecutable(VirtualEnvDescriptor env) throws PythonException {
-        String binDir = isWindows() ? getPython3Executable() + "-m " : "bin/";
-        return new File(env.directory, binDir  + "pip").getAbsolutePath();
+        return isWindows() ? getPython3Executable() + "-m pip" : new File(env.directory, "bin/pip").getAbsolutePath();
     }
 
     private String getPythonExecutable(VirtualEnvDescriptor env) {
