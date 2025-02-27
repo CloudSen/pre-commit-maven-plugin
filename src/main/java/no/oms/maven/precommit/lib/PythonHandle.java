@@ -83,7 +83,9 @@ final class DefaultPythonHandle implements PythonHandle {
         }
 
         String pipCommand = getPipExecutable(env);
-        String[] command = {pipCommand, "install", "pyyaml", "--disable-pip-version-check"};
+        String[] winCommand = {pipCommand, "-m", "pip", "install", "pyyaml", "--disable-pip-version-check"};
+        String[] unixCommand = {pipCommand, "install", "pyyaml", "--disable-pip-version-check"};
+        String[] command = isWindows() ? winCommand : unixCommand;
         String[] environment = {"VIRTUAL_ENV=" + env.directory.getAbsolutePath()};
         LOGGER.debug("Running {} with command: {}", environment, command);
 
@@ -100,7 +102,9 @@ final class DefaultPythonHandle implements PythonHandle {
         }
 
         String pipCommand = getPipExecutable(env);
-        String[] command = {pipCommand, "install", "setuptools"};
+        String[] winCommand = {pipCommand, "-m", "pip", "install", "setuptools", "--disable-pip-version-check"};
+        String[] unixCommand = {pipCommand, "install", "setuptools", "--disable-pip-version-check"};
+        String[] command = isWindows() ? winCommand : unixCommand;
         String[] environment = {"VIRTUAL_ENV=" + env.directory.getAbsolutePath()};
         LOGGER.debug("Running {} with command: {}", environment, command);
 
@@ -193,7 +197,7 @@ final class DefaultPythonHandle implements PythonHandle {
     }
 
     private String getPipExecutable(VirtualEnvDescriptor env) throws PythonException {
-        return isWindows() ? getPython3Executable() + " -m pip " : new File(env.directory, "bin/pip").getAbsolutePath();
+        return isWindows() ? getPython3Executable() : new File(env.directory, "bin/pip").getAbsolutePath();
     }
 
     private String getPythonExecutable(VirtualEnvDescriptor env) {
