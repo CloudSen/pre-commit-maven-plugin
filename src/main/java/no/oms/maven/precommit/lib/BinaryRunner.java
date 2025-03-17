@@ -23,6 +23,7 @@ public class BinaryRunner {
             File installDirectory = getInstallDirectory();
 
             VirtualEnvDescriptor env = pythonHandle.setupVirtualEnv(installDirectory, "pre-commit");
+            pythonHandle.sourceEnv(env);
             pythonHandle.installGitHooks(env, hookTypes);
 
             logger.info("Installed Git commit hooks");

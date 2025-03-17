@@ -57,9 +57,8 @@ public class BinaryInstaller {
             }
 
             VirtualEnvDescriptor env = pythonHandle.setupVirtualEnv(installDirectory, "pre-commit");
-            pythonHandle.installPyYaml(env);
-            pythonHandle.installSetupTools(env);
-            pythonHandle.installIntoVirtualEnv(env, setupFile);
+            pythonHandle.sourceEnv(env);
+            pythonHandle.installAllDependencies(env, setupFile);
 
             logger.info("Installed pre-commit locally.");
         } catch (DownloadException e) {

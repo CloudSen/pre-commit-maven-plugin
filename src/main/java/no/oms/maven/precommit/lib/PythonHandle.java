@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 
 final class PythonException extends Exception {
+
     PythonException(String message) {
         super(message);
     }
@@ -18,14 +19,24 @@ final class PythonException extends Exception {
 }
 
 interface PythonHandle {
+
     VirtualEnvDescriptor setupVirtualEnv(File directory, String envName) throws PythonException;
+
+    void sourceEnv(VirtualEnvDescriptor env) throws PythonException;
+
+    void installAllDependencies(VirtualEnvDescriptor env, File setupFile) throws PythonException;
+
     void installPyYaml(VirtualEnvDescriptor env) throws PythonException;
+
     void installSetupTools(VirtualEnvDescriptor env) throws PythonException;
+
     void installIntoVirtualEnv(VirtualEnvDescriptor env, File setupFile) throws PythonException;
+
     void installGitHooks(VirtualEnvDescriptor env, HookType[] hookTypes) throws PythonException;
 }
 
 final class VirtualEnvDescriptor {
+
     File directory;
     String name;
 
@@ -36,6 +47,7 @@ final class VirtualEnvDescriptor {
 }
 
 final class DefaultPythonHandle implements PythonHandle {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(PythonHandle.class);
 
     @Override
@@ -50,8 +62,7 @@ final class DefaultPythonHandle implements PythonHandle {
             return env;
         }
 
-        String pythonExecutable = getPython3Executable();
-        String[] command = {pythonExecutable, "-m", "venv", env.directory.getAbsolutePath()};
+        String[] command = { "python3", "-m", "venv", env.directory.getAbsolutePath() };
         LOGGER.debug("Running {}", (Object) command);
 
         try {
@@ -62,8 +73,7 @@ final class DefaultPythonHandle implements PythonHandle {
             if (result != 0) {
                 throw new PythonException(
                         "Could not create virtual env " + env.directory.getAbsolutePath() + ". return code " + result +
-                        "\nPython said: " + stdout
-                );
+                                "\nPython said: " + stdout);
             }
         } catch (IOException e) {
             throw new PythonException("Failed to execute python", e);
@@ -75,6 +85,51 @@ final class DefaultPythonHandle implements PythonHandle {
     }
 
     @Override
+    public void installAllDependencies(VirtualEnvDescriptor env, File setupFile) throws PythonException {
+        LOGGER.info("About to install all dependencies into env {}", env.name);
+
+        if (!env.directory.exists()) {
+            throw new PythonException("Virtual env " + env.name + " does not exist");
+        }
+
+        String activateCommand = isWindows() ? env.directory.getAbsolutePath() + "Scripts\\activate" : "bin/activate";
+        String[] command;
+        if (isWindows()) {
+            command = new String[] {
+                env.directory.getAbsolutePath() + File.separator + activateCommand,
+                "&&",
+                "pip",
+                "install",
+                "pyyaml setuptools",
+                "--disable-pip-version-check",
+                "&&",
+                "python",
+                setupFile.getAbsolutePath(),
+                "install"
+            };
+        } else {
+            command = new String[] {
+                "/bin/bash",
+                "-c",
+                "source "
+                + env.directory.getAbsolutePath() + File.separator + activateCommand
+                +" && "
+                + "pip install pyyaml setuptools --disable-pip-version-check"
+                + " && cd "
+                + env.directory.getAbsolutePath()
+                + " && cd .."
+                + " && python "
+                + setupFile.getAbsolutePath()
+                +" install"
+            };
+        }
+        LOGGER.debug("Running command: {}", (Object) command);
+
+        executePythonCommand(command, null);
+        LOGGER.info("Successfully installed all dependencies into {}", env.name);
+    }
+
+    @Override
     public void installPyYaml(VirtualEnvDescriptor env) throws PythonException {
         LOGGER.info("About to install pyyaml into env {}", env.name);
 
@@ -82,14 +137,18 @@ final class DefaultPythonHandle implements PythonHandle {
             throw new PythonException("Virtual env " + env.name + " does not exist");
         }
 
-        String pipCommand = getPipExecutable(env);
-        String[] winCommand = {pipCommand, "-m", "pip", "install", "pyyaml", "--disable-pip-version-check"};
-        String[] unixCommand = {pipCommand, "install", "pyyaml", "--disable-pip-version-check"};
-        String[] command = isWindows() ? winCommand : unixCommand;
-        String[] environment = {"VIRTUAL_ENV=" + env.directory.getAbsolutePath()};
-        LOGGER.debug("Running {} with command: {}", environment, command);
+        String activateCommand = isWindows() ? "Scripts\\activate" : "bin/activate";
+        String[] command = {
+            env.directory.getAbsolutePath() + File.separator + activateCommand,
+            "&&",
+            "pip",
+            "install",
+            "pyyaml",
+            "--disable-pip-version-check"
+        };
+        LOGGER.debug("Running command: {}", (Object) command);
 
-        executePythonCommand(command, environment);
+        executePythonCommand(command, null);
         LOGGER.info("Successfully installed pyyaml into {}", env.name);
     }
 
@@ -102,10 +161,10 @@ final class DefaultPythonHandle implements PythonHandle {
         }
 
         String pipCommand = getPipExecutable(env);
-        String[] winCommand = {pipCommand, "-m", "pip", "install", "setuptools", "--disable-pip-version-check"};
-        String[] unixCommand = {pipCommand, "install", "setuptools", "--disable-pip-version-check"};
+        String[] winCommand = { pipCommand, "-m", "pip", "install", "setuptools", "--disable-pip-version-check" };
+        String[] unixCommand = { pipCommand, "install", "setuptools", "--disable-pip-version-check" };
         String[] command = isWindows() ? winCommand : unixCommand;
-        String[] environment = {"VIRTUAL_ENV=" + env.directory.getAbsolutePath()};
+        String[] environment = { "VIRTUAL_ENV=" + env.directory.getAbsolutePath() };
         LOGGER.debug("Running {} with command: {}", environment, command);
 
         executePythonCommand(command, environment);
@@ -120,9 +179,9 @@ final class DefaultPythonHandle implements PythonHandle {
             throw new PythonException("Virtual env " + env.name + " does not exist");
         }
 
-        String pythonCommand = getPythonExecutable(env);
-        String[] command = {pythonCommand, setupFile.getAbsolutePath(), "install"};
-        String[] environment = {"VIRTUAL_ENV=" + env.directory.getAbsolutePath()};
+        String pythonCommand = getPython3Executable();
+        String[] command = { pythonCommand, setupFile.getAbsolutePath(), "install" };
+        String[] environment = { "VIRTUAL_ENV=" + env.directory.getAbsolutePath() };
         LOGGER.debug("Running {} with command: {} in {}", environment, command, setupFile.getParentFile());
 
         executePythonCommand(command, environment, setupFile.getParentFile());
@@ -143,10 +202,10 @@ final class DefaultPythonHandle implements PythonHandle {
 
         for (HookType type : hookTypes) {
             String preCommitCommand = getPreCommitExecutable(env);
-            String[] command = {preCommitCommand, "install", "--install-hooks", "--overwrite", "--hook-type", type.getValue()};
+            String[] command = { preCommitCommand, "install", "--install-hooks", "--overwrite", "--hook-type", type.getValue() };
             String[] environment = {
-                    "VIRTUAL_ENV=" + env.directory.getAbsolutePath(),
-                    "PATH=" + System.getenv("PATH")
+                "VIRTUAL_ENV=" + env.directory.getAbsolutePath(),
+                "PATH=" + System.getenv("PATH")
             };
             LOGGER.debug("Running {} with command: {}", environment, command);
 
@@ -157,20 +216,14 @@ final class DefaultPythonHandle implements PythonHandle {
     }
 
     private String getPython3Executable() throws PythonException {
-        if (binaryExists("python3")) return "python3";
-        if (binaryExists("python")) return "python";
-
-        throw new PythonException(
-                "Could not find a compatible python 3 version on your system. 3.3 is the minimum supported python version. " +
-                "Please check you have a compatible 'python' or 'python3' executable on your PATH"
-        );
+        return "python";
     }
 
     private boolean binaryExists(String binaryName) {
         Runtime runtime = Runtime.getRuntime();
 
         try {
-            Process proc = runtime.exec(new String[]{binaryName, "--version"});
+            Process proc = runtime.exec(new String[] { binaryName, "--version" });
             String output = IOUtils.toString(proc.getInputStream());
 
             if (proc.waitFor() == 0 && checkVersion(output)) {
@@ -198,11 +251,6 @@ final class DefaultPythonHandle implements PythonHandle {
 
     private String getPipExecutable(VirtualEnvDescriptor env) throws PythonException {
         return isWindows() ? getPython3Executable() : new File(env.directory, "bin/pip").getAbsolutePath();
-    }
-
-    private String getPythonExecutable(VirtualEnvDescriptor env) {
-        String binDir = isWindows() ? "Scripts" : "bin";
-        return new File(env.directory, binDir + File.separator + "python").getAbsolutePath();
     }
 
     private String getPreCommitExecutable(VirtualEnvDescriptor env) {
@@ -251,5 +299,27 @@ final class DefaultPythonHandle implements PythonHandle {
     private boolean isWindows() {
         String os = System.getProperty("os.name").toLowerCase();
         return os.contains("win");
+    }
+
+    @Override
+    public void sourceEnv(VirtualEnvDescriptor env) throws PythonException {
+        String[] command;
+        if (isWindows()) {
+            command = new String[] { "cmd.exe", "/c", env.directory.getAbsolutePath() + "\\Scripts\\activate.bat" };
+        } else {
+            command = new String[] { "bash", "-c", "source " + env.directory.getAbsolutePath() + "/bin/activate" };
+        }
+
+        LOGGER.info("About to activate virtual env using {}", String.join(" ", command));
+
+        if (!env.directory.exists()) {
+            throw new PythonException("Virtual env directory does not exist at " + env.directory.getAbsolutePath());
+        }
+
+        try {
+            executePythonCommand(command, new String[0]);
+        } catch (PythonException e) {
+            LOGGER.error("Failed to activate virtual environment", e);
+        }
     }
 }
